@@ -1,0 +1,32 @@
+[graph]
+all-features = true
+
+[licenses]
+allow = [
+  "MIT",
+  "MIT-0",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "CC0-1.0",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+]
+
+# The engine sources are GPL and this binary links them, so both are copyleft
+# by necessity. Scoped as exceptions so any other GPL dependency still fails.
+[[licenses.exceptions]]
+name = "doomgeneric"
+allow = ["GPL-2.0-only"]
+
+[[licenses.exceptions]]
+name = "plurimus-doom"
+allow = ["GPL-2.0-only"]
+
+[bans]
+multiple-versions = "warn"
+
+[advisories]
+yanked = "deny"

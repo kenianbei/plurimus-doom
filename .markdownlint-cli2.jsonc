@@ -1,0 +1,7 @@
+{
+  // Rules stay at markdownlint defaults; only discovery is configured.
+  // MD013 caps lines at 80 but exempts lines with no whitespace past the
+  // limit, which is what lets long code-block lines through.
+  "gitignore": true,
+  "ignores": ["target", "node_modules"],
+}

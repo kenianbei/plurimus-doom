@@ -1,0 +1,4 @@
+# Project and dependency names the dictionary mistakes for misspellings.
+[default.extend-words]
+ratatui = "ratatui"
+doomgeneric = "doomgeneric"

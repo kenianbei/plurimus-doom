@@ -1,0 +1,8 @@
+.agents
+.claude
+debug
+target
+skills-lock.json
+*.wad
+doom.log
+.savegame
