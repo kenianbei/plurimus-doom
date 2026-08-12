@@ -18,10 +18,10 @@ use bevy_transform::components::Transform;
 use doomgeneric::game::{DOOMGENERIC_RESX, DOOMGENERIC_RESY};
 use plurimus::core::TerminalCamera;
 use plurimus::core::raster::PixelGrid;
-use plurimus::input::{InputPlugin, KeyCode, KeyKind, KeyMessage};
 use plurimus::render3d::{
     EdgeOverlay, LuminanceRamp, Plugin3d, RAMP_SHADING, Render3dPlugins, Strategy3d,
 };
+use plurimus::term::{KeyCode, KeyKind, KeyMessage, TermPlugin};
 
 use crate::doom_thread::{DoomHandle, SharedFrame};
 
@@ -52,8 +52,8 @@ pub struct GpuPlugin;
 impl Plugin for GpuPlugin {
     fn build(&self, app: &mut App) {
         // The render-mode hotkeys read terminal input directly.
-        if !app.is_plugin_added::<InputPlugin>() {
-            app.add_plugins(InputPlugin);
+        if !app.is_plugin_added::<TermPlugin>() {
+            app.add_plugins(TermPlugin);
         }
         // Render3dPlugins stops at the render stack, so the material
         // system is ours to add - MaterialPlugin alone has no mesh
@@ -113,15 +113,12 @@ fn toggle_strategy(
 
 fn next_strategy(strategy: Strategy3d) -> Strategy3d {
     match strategy {
-        Strategy3d::Halfblocks => Strategy3d::Luminance(LuminanceRamp {
-            characters: RAMP_SHADING,
-            ..LuminanceRamp::default()
-        }),
+        Strategy3d::Halfblocks => Strategy3d::Luminance(LuminanceRamp::new(RAMP_SHADING)),
         Strategy3d::Luminance(ramp) if ramp.characters == RAMP_SHADING => {
             Strategy3d::Luminance(LuminanceRamp::default())
         }
         Strategy3d::Luminance(_) => Strategy3d::Braille,
-        Strategy3d::Braille | Strategy3d::Depth(_) | Strategy3d::None => Strategy3d::Halfblocks,
+        _ => Strategy3d::Halfblocks,
     }
 }
 
@@ -185,25 +182,25 @@ fn write_rgba(frame: &SharedFrame, image: &mut Image) {
 mod tests {
     use bevy_app::App;
     use plurimus::core::{CorePlugin, TerminalSize};
-    use plurimus::input::KeyModifiers;
+    use plurimus::term::KeyModifiers;
 
     use super::*;
 
     fn render_keys_app() -> (App, bevy_ecs::prelude::Entity) {
         let mut app = App::new();
-        app.add_plugins((CorePlugin, InputPlugin));
-        app.insert_resource(TerminalSize { cols: 10, rows: 4 });
+        app.add_plugins((CorePlugin, TermPlugin));
+        app.insert_resource(TerminalSize::new(10, 4));
         app.add_systems(Update, toggle_strategy);
         let camera = app.world_mut().spawn(Strategy3d::default()).id();
         (app, camera)
     }
 
     fn press(app: &mut App, character: char) {
-        app.world_mut().write_message(KeyMessage {
-            code: KeyCode::Char(character),
-            modifiers: KeyModifiers::default(),
-            kind: KeyKind::Press,
-        });
+        app.world_mut().write_message(KeyMessage::new(
+            KeyCode::Char(character),
+            KeyModifiers::default(),
+            KeyKind::Press,
+        ));
         app.update();
     }
 
@@ -293,7 +290,7 @@ mod gpu_smoke {
         let (keys, _key_receiver) = mpsc::channel();
         let mut app = App::new();
         app.add_plugins((CorePlugin, GpuPlugin));
-        app.insert_resource(TerminalSize { cols: 40, rows: 12 });
+        app.insert_resource(TerminalSize::new(40, 12));
         app.insert_resource(DoomHandle {
             frame: FrameHandle::new(SharedFrame {
                 pixels: vec![RED; 16],

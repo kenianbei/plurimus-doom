@@ -32,10 +32,7 @@ impl Plugin for CpuBlitPlugin {
 }
 
 fn spawn_world_camera(mut commands: Commands) {
-    commands.spawn(TerminalCamera {
-        background: Background::Clear(Color::Black),
-        ..TerminalCamera::default()
-    });
+    commands.spawn(TerminalCamera::default().with_background(Background::Clear(Color::Black)));
 }
 
 fn extract_frame(main_world: Res<MainWorld>, mut extracted: ResMut<ExtractedDoomFrame>) {

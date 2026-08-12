@@ -25,7 +25,7 @@ gpu = [
 
 [dependencies]
 doomgeneric = "=0.3.0"
-plurimus = "0.2"
+plurimus = "0.6"
 ratatui-widgets = "0.3.2"
 bevy_app = "0.19"
 bevy_ecs = "0.19"

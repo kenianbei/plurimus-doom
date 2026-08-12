@@ -5,7 +5,7 @@
 
 use std::os::raw::c_int;
 
-use plurimus::input::{MouseKind, MouseMessage};
+use plurimus::term::{MouseKind, MouseMessage};
 
 const EV_MOUSE: c_int = 2;
 const ENGINE_DX_PER_CELL: i32 = 32;
@@ -63,16 +63,12 @@ impl AimTracker {
 #[cfg(test)]
 mod tests {
     use plurimus::core::ratatui_core::layout::Position;
-    use plurimus::input::{KeyModifiers, MouseButton};
+    use plurimus::term::{KeyModifiers, MouseButton};
 
     use super::*;
 
     fn mouse(kind: MouseKind, column: u16) -> MouseMessage {
-        MouseMessage {
-            kind,
-            position: Position::new(column, 0),
-            modifiers: KeyModifiers::default(),
-        }
+        MouseMessage::new(kind, Position::new(column, 0), KeyModifiers::default())
     }
 
     #[test]

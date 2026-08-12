@@ -5,9 +5,8 @@ use std::sync::atomic::Ordering;
 
 use bevy_app::{App, AppExit, Plugin, Startup, Update};
 use bevy_ecs::prelude::{Commands, Local, MessageReader, MessageWriter, Res};
-use plurimus::core::{Background, Edge, TerminalCamera, Viewport};
-use plurimus::core::{UiCamera, UiWidget};
-use plurimus::input::{InputCapabilities, InputPlugin, KeyCode, KeyKind, KeyMessage, MouseMessage};
+use plurimus::core::{Background, Edge, TerminalCamera, UiCamera, UiWidget, Viewport};
+use plurimus::term::{InputCapabilities, KeyCode, KeyKind, KeyMessage, MouseMessage, TermPlugin};
 use ratatui_widgets::paragraph::Paragraph;
 
 use crate::doom_thread::DoomHandle;
@@ -15,15 +14,16 @@ use crate::mouse_aim::AimTracker;
 use crate::{doom_thread, keymap};
 
 const HUD_ORDER: isize = 1;
+const HUD_HEIGHT_CELLS: u16 = 1;
 
 pub struct DoomPlugin;
 
 impl Plugin for DoomPlugin {
     fn build(&self, app: &mut App) {
-        // Doom reads terminal input directly, so it owns that dependency
-        // rather than relying on whatever installed the backend.
-        if !app.is_plugin_added::<InputPlugin>() {
-            app.add_plugins(InputPlugin);
+        // A terminal backend installs this itself; adding it here keeps
+        // Doom's input path working in an app composed without one.
+        if !app.is_plugin_added::<TermPlugin>() {
+            app.add_plugins(TermPlugin);
         }
         app.add_systems(Startup, spawn_hud_camera);
         app.add_systems(Update, (forward_keys, forward_mouse, quit_on_ctrl_c));
@@ -31,17 +31,14 @@ impl Plugin for DoomPlugin {
 }
 
 fn spawn_hud_camera(mut commands: Commands, capabilities: Res<InputCapabilities>) {
-    let hud_camera = commands
-        .spawn(TerminalCamera {
-            order: HUD_ORDER,
-            background: Background::Transparent,
-            viewport: Viewport::Docked {
-                edge: Edge::Top,
-                cells: 1,
-            },
-            ..TerminalCamera::default()
-        })
-        .id();
+    let camera = TerminalCamera::default()
+        .with_order(HUD_ORDER)
+        .with_background(Background::Transparent)
+        .with_viewport(Viewport::Docked {
+            edge: Edge::Top,
+            cells: HUD_HEIGHT_CELLS,
+        });
+    let hud_camera = commands.spawn(camera).id();
     commands.spawn((
         UiWidget::new(Paragraph::new(hud_text(&capabilities))),
         UiCamera(hud_camera),
@@ -111,8 +108,9 @@ mod tests {
     use crate::doom_thread::{FrameHandle, SharedFrame};
     use bevy_app::App;
     use doomgeneric::input::KeyData;
+    use plurimus::core::ratatui_core::layout::Position;
     use plurimus::core::{CorePlugin, FrameBuffer, TerminalRenderApp, TerminalSize};
-    use plurimus::input::{KeyCode, KeyKind, KeyModifiers};
+    use plurimus::term::{KeyCode, KeyKind, KeyModifiers, MouseButton, MouseKind};
 
     const RED: u32 = 0xff0000;
 
@@ -129,7 +127,7 @@ mod tests {
         app.add_plugins((CorePlugin, DoomPlugin));
         #[cfg(not(feature = "gpu"))]
         app.add_plugins(crate::cpu_blit::CpuBlitPlugin);
-        app.insert_resource(TerminalSize { cols: 10, rows: 4 });
+        app.insert_resource(TerminalSize::new(10, 4));
         app.insert_resource(DoomHandle {
             frame: FrameHandle::new(frame),
             keys,
@@ -143,6 +141,10 @@ mod tests {
             keys: key_receiver,
             turn,
         }
+    }
+
+    fn mouse(kind: MouseKind, column: u16) -> MouseMessage {
+        MouseMessage::new(kind, Position::new(column, 0), KeyModifiers::default())
     }
 
     fn red_frame() -> SharedFrame {
@@ -185,9 +187,6 @@ mod tests {
 
     #[test]
     fn mouse_clicks_forward_to_the_doom_thread() {
-        use plurimus::core::ratatui_core::layout::Position;
-        use plurimus::input::{MouseButton, MouseKind};
-
         let DoomTestApp {
             mut app,
             keys,
@@ -195,11 +194,8 @@ mod tests {
             ..
         } = doom_app(red_frame());
 
-        app.world_mut().write_message(MouseMessage {
-            kind: MouseKind::Down(MouseButton::Left),
-            position: Position::new(0, 0),
-            modifiers: KeyModifiers::default(),
-        });
+        app.world_mut()
+            .write_message(mouse(MouseKind::Down(MouseButton::Left), 0));
         app.update();
 
         let key = keys.try_recv().unwrap();
@@ -210,17 +206,11 @@ mod tests {
 
     #[test]
     fn mouse_motion_forwards_aim_deltas() {
-        use plurimus::core::ratatui_core::layout::Position;
-        use plurimus::input::MouseKind;
-
         let DoomTestApp { mut app, turn, .. } = doom_app(red_frame());
 
         for column in [10, 14] {
-            app.world_mut().write_message(MouseMessage {
-                kind: MouseKind::Moved,
-                position: Position::new(column, 0),
-                modifiers: KeyModifiers::default(),
-            });
+            app.world_mut()
+                .write_message(mouse(MouseKind::Moved, column));
         }
         app.update();
 
@@ -231,11 +221,11 @@ mod tests {
     fn key_messages_forward_to_the_doom_thread() {
         let DoomTestApp { mut app, keys, .. } = doom_app(red_frame());
 
-        app.world_mut().write_message(KeyMessage {
-            code: KeyCode::Char(' '),
-            modifiers: KeyModifiers::default(),
-            kind: KeyKind::Press,
-        });
+        app.world_mut().write_message(KeyMessage::new(
+            KeyCode::Char(' '),
+            KeyModifiers::default(),
+            KeyKind::Press,
+        ));
         app.update();
 
         let key = keys.try_recv().unwrap();

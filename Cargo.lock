@@ -211,6 +211,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
 name = "bevy_android"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1214,6 +1220,7 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b9f2e4c67f833b660cdb0a3523065869fb35570177239812ed4c905aeff87b"
 dependencies = [
+ "base64",
  "bitflags",
  "crossterm_winapi",
  "derive_more",
@@ -2259,14 +2266,14 @@ dependencies = [
 
 [[package]]
 name = "plurimus"
-version = "0.2.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d2261ac705b356c22969c3682fe3bf78aed0070b5dfb1ba9083fb1d6f72a4dd"
+checksum = "13d4263170761a890def42aafd5d75dcefc8df55b089d6ca20bdc06bb4df6896"
 dependencies = [
  "plurimus_3d",
  "plurimus_core",
  "plurimus_crossterm",
- "plurimus_input",
+ "plurimus_term",
 ]
 
 [[package]]
@@ -2295,9 +2302,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_3d"
-version = "0.2.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deb9bbe86ca60aeda8110f33ba0e1e87cde5b170f61410910806ca563e00ca59"
+checksum = "06ec04ef2a02bf0ababaa158de61a31808884030102b4c72f1a9cb77fb67214a"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -2321,9 +2328,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_core"
-version = "0.2.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5678552fe69c68d3c2d24e012a8eb9790e09112f89d06c28202be96221b286e6"
+checksum = "2ac3df168896519809cc2c1b12c91ede85938525c82d2d225333308beeda9ed8"
 dependencies = [
  "bevy_app",
  "bevy_color",
@@ -2333,24 +2340,25 @@ dependencies = [
 
 [[package]]
 name = "plurimus_crossterm"
-version = "0.2.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f4d3492eef5fb88b4bbf45308028a799d175a408cd7be3578930b1b689f91a5"
+checksum = "0f34a8ae56187d8299e3b4cd9ed0be058077ad39689118a61e817233069b5f43"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
+ "bevy_log",
  "crossterm",
  "plurimus_core",
- "plurimus_input",
+ "plurimus_term",
  "ratatui-core",
  "ratatui-crossterm",
 ]
 
 [[package]]
-name = "plurimus_input"
-version = "0.2.0"
+name = "plurimus_term"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce96b0315583f749da25f34cf8ba67021c92e35223824740342f2996fafedf65"
+checksum = "62f3f6c16a4d7973af62d45016d7ca76cbc5874c5e11ca6705f34e25b6f45331"
 dependencies = [
  "bevy_app",
  "bevy_ecs",

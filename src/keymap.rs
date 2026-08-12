@@ -2,7 +2,7 @@
 
 use doomgeneric::input::KeyData;
 use doomgeneric::input::keys;
-use plurimus::input::{KeyCode, KeyKind, KeyMessage, MouseButton, MouseKind, MouseMessage};
+use plurimus::term::{KeyCode, KeyKind, KeyMessage, MouseButton, MouseKind, MouseMessage};
 
 pub fn map_mouse(message: &MouseMessage) -> Option<KeyData> {
     let (pressed, button) = match message.kind {
@@ -78,32 +78,20 @@ fn char_key(character: char) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use plurimus::core::ratatui_core::layout::Position;
-    use plurimus::input::KeyModifiers;
+    use plurimus::term::KeyModifiers;
 
     use super::*;
 
     fn message(code: KeyCode, kind: KeyKind) -> KeyMessage {
-        KeyMessage {
-            code,
-            modifiers: KeyModifiers::default(),
-            kind,
-        }
+        KeyMessage::new(code, KeyModifiers::default(), kind)
     }
 
     fn shifted(code: KeyCode, kind: KeyKind) -> KeyMessage {
-        KeyMessage {
-            code,
-            modifiers: KeyModifiers::default().with_shift(true),
-            kind,
-        }
+        KeyMessage::new(code, KeyModifiers::default().with_shift(true), kind)
     }
 
     fn mouse(kind: MouseKind) -> MouseMessage {
-        MouseMessage {
-            kind,
-            position: Position::new(0, 0),
-            modifiers: KeyModifiers::default(),
-        }
+        MouseMessage::new(kind, Position::new(0, 0), KeyModifiers::default())
     }
 
     #[test]
