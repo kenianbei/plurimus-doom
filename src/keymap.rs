@@ -24,11 +24,9 @@ pub fn map_key(message: &KeyMessage) -> Vec<KeyData> {
         KeyKind::Release => false,
         KeyKind::Repeat => return Vec::new(),
     };
-    let codes = match strafe_codes(message.code, message.modifiers.shift, pressed) {
-        Some(codes) => codes,
-        None => doom_key(message.code).into_iter().collect(),
-    };
-    codes
+    let code = message.code.held_as();
+    strafe_codes(code, message.modifiers.shift, pressed)
+        .unwrap_or_else(|| doom_key(code).into_iter().collect())
         .into_iter()
         .map(|key| KeyData { pressed, key })
         .collect()
@@ -56,7 +54,7 @@ fn doom_key(code: KeyCode) -> Option<u8> {
         KeyCode::Down => Some(*keys::KEY_DOWN),
         KeyCode::Esc => Some(keys::KEY_ESCAPE),
         KeyCode::Enter => Some(keys::KEY_ENTER),
-        KeyCode::Char(character) => char_key(character.to_ascii_lowercase()),
+        KeyCode::Char(character) => char_key(character),
         _ => None,
     }
 }
@@ -198,6 +196,9 @@ mod tests {
     fn unmapped_ascii_passes_through() {
         let key = map_key(&message(KeyCode::Char('y'), KeyKind::Press));
         assert_eq!(key[0].key, b'y');
+
+        let upper = map_key(&shifted(KeyCode::Char('Y'), KeyKind::Press));
+        assert_eq!(upper[0].key, b'y');
     }
 
     #[test]

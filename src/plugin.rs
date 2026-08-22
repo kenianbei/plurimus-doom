@@ -76,7 +76,7 @@ fn quit_on_ctrl_c(mut keys: MessageReader<KeyMessage>, mut exit: MessageWriter<A
     for message in keys.read() {
         if message.kind == KeyKind::Press
             && message.modifiers.ctrl
-            && message.code == KeyCode::Char('c')
+            && message.code.held_as() == KeyCode::Char('c')
         {
             exit.write(AppExit::Success);
         }
@@ -215,6 +215,20 @@ mod tests {
         app.update();
 
         assert!(turn.load(Ordering::Relaxed) > 0);
+    }
+
+    #[test]
+    fn the_quit_chord_holds_under_shift() {
+        let DoomTestApp { mut app, .. } = doom_app(red_frame());
+
+        app.world_mut().write_message(KeyMessage::new(
+            KeyCode::Char('C'),
+            KeyModifiers::default().with_ctrl(true).with_shift(true),
+            KeyKind::Press,
+        ));
+        app.update();
+
+        assert!(app.should_exit().is_some());
     }
 
     #[test]
