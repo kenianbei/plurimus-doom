@@ -456,9 +456,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_encase_derive"
-version = "0.19.0"
+version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14dc5bf9e6cb46c4401a66625b5f7eb9654a7f3c8586423c428b79586a1c55cd"
+checksum = "be03820f64f2279ae9d826c882e4ef764516ff75ab7bdc39bb40801891533b89"
 dependencies = [
  "bevy_macro_utils",
  "encase_derive_impl",
@@ -618,9 +618,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mesh"
-version = "0.19.0"
+version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c59863e6f37ef0ba1f37021bce9dd940f9dc31d15e03f548cda5fd3e674f409e"
+checksum = "e2adbf8e5a5817c345986756eb0377e18a510e1d7685ef62d6c7bafcd3bab85e"
 dependencies = [
  "bevy_app",
  "bevy_asset",
