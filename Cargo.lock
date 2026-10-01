@@ -2266,9 +2266,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a3a1a90457dea43fb5e4b16ebaa9a46c02e8dd6253da5c312c54099b2b292ef"
+checksum = "e293fdc2581be3627d65d15e772f65b439bd5e33b80ff3b6b09f5048570d7873"
 dependencies = [
  "plurimus_3d",
  "plurimus_core",
@@ -2302,9 +2302,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_3d"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d090440b84cd683a5b108345254bf282c7d1b6312b75a32af6095efdab920a6c"
+checksum = "68cac1651556aef74eb04fee4236c9af0f886b695e269dc6db14dde683d411d3"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -2328,9 +2328,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_core"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9de526461f2eba56527113d631ba4c6d2b257804d5171c10d1015b463bf9099d"
+checksum = "48d30dfbc0eb2a81e8b38504129482989b973dd21312b27d7f75437c496baeb3"
 dependencies = [
  "bevy_app",
  "bevy_color",
@@ -2340,9 +2340,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_crossterm"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0e000b1864e5f4be88e0822b7a079b41e4d8f480b215718b919bb4aab9404dc"
+checksum = "cb340c697a6b1d63eae22987ec3514e01258ef9390a69f4c39454da62e60c91f"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -2356,9 +2356,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_term"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fed126ce533820e9187d17a8d543a6a185e929cbb17ce6c5d90cb2f36f1999e"
+checksum = "6d484604623cb94d2a76dfe1eeb0e97d7e34963f4071f3258eb62ea06ec8a327"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
