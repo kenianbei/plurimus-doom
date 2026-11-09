@@ -176,3 +176,30 @@ fn losing_focus_releases_the_held_button() {
     assert!(!released[0].pressed);
     assert_eq!(released[0].key, *doomgeneric::input::keys::KEY_FIRE);
 }
+
+fn top_row(app: &App) -> String {
+    let frame = &app
+        .sub_app(TerminalRenderApp)
+        .world()
+        .resource::<FrameBuffer>()
+        .0;
+    (0..frame.area.width)
+        .filter_map(|x| frame.cell((x, 0)).map(|cell| cell.symbol().to_owned()))
+        .collect()
+}
+
+#[test]
+fn the_key_tier_note_follows_learned_capabilities() {
+    const WIDE_COLUMNS: u16 = 80;
+    let DoomTestApp { mut app, .. } = doom_app(red_frame());
+    app.insert_resource(TerminalSize::new(WIDE_COLUMNS, 4));
+    app.insert_resource(InputCapabilities::none());
+    app.update();
+    app.update();
+    assert!(top_row(&app).contains("DEGRADED"));
+
+    app.insert_resource(InputCapabilities::none().with_key_release(true));
+    app.update();
+    app.update();
+    assert!(!top_row(&app).contains("DEGRADED"));
+}

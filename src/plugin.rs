@@ -4,7 +4,10 @@
 use std::sync::atomic::Ordering;
 
 use bevy_app::{App, AppExit, Plugin, Startup, Update};
-use bevy_ecs::prelude::{Commands, Local, MessageReader, MessageWriter, Res};
+use bevy_ecs::prelude::{
+    Commands, Component, IntoScheduleConfigs, Local, MessageReader, MessageWriter, Query, Res,
+    With, resource_changed,
+};
 use bevy_window::CursorMoved;
 use plurimus::core::bevy_camera::{Camera, ClearColorConfig};
 use plurimus::core::{CellSize, Edge, TerminalCamera, UiCamera, UiWidget};
@@ -21,6 +24,9 @@ const HUD_HEIGHT_CELLS: u16 = 1;
 
 pub struct DoomPlugin;
 
+#[derive(Component)]
+struct HudLine;
+
 impl Plugin for DoomPlugin {
     fn build(&self, app: &mut App) {
         // A terminal backend installs this itself; adding it here keeps
@@ -31,7 +37,13 @@ impl Plugin for DoomPlugin {
         app.add_systems(Startup, spawn_hud_camera);
         app.add_systems(
             Update,
-            (forward_keys, forward_buttons, forward_aim, quit_on_ctrl_c),
+            (
+                forward_keys,
+                forward_buttons,
+                forward_aim,
+                quit_on_ctrl_c,
+                refresh_hud.run_if(resource_changed::<InputCapabilities>),
+            ),
         );
     }
 }
@@ -51,9 +63,18 @@ fn spawn_hud_camera(mut commands: Commands, capabilities: Res<InputCapabilities>
         ))
         .id();
     commands.spawn((
+        HudLine,
         UiWidget::new(Paragraph::new(hud_text(&capabilities))),
         UiCamera(hud_camera),
     ));
+}
+
+// The backend learns key releases from the first one it sees, after
+// startup, so the key-tier note must follow the resource.
+fn refresh_hud(capabilities: Res<InputCapabilities>, mut hud: Query<&mut UiWidget, With<HudLine>>) {
+    for mut line in &mut hud {
+        *line = UiWidget::new(Paragraph::new(hud_text(&capabilities)));
+    }
 }
 
 #[cfg(feature = "gpu")]

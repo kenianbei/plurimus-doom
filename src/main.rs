@@ -61,10 +61,5 @@ fn main() -> AppExit {
     app.add_plugins(gpu::GpuPlugin);
     let doom = doom_thread::spawn_doom(iwad);
     app.insert_resource(doom);
-    let capabilities = app.world().resource::<plurimus::term::InputCapabilities>();
-    eprintln!(
-        "input capabilities: key_release={}",
-        capabilities.key_release
-    );
     app.run()
 }
