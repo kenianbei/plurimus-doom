@@ -2525,7 +2525,6 @@ dependencies = [
  "bevy_core_pipeline",
  "bevy_ecs",
  "bevy_image",
- "bevy_math",
  "bevy_mesh",
  "bevy_pbr",
  "bevy_reflect",

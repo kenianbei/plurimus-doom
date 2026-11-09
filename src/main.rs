@@ -11,6 +11,8 @@ mod mouse_aim;
 mod plugin;
 mod restore;
 mod stdio;
+#[cfg(test)]
+mod test_input;
 mod wad;
 
 use std::path::Path;

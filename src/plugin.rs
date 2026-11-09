@@ -5,12 +5,11 @@ use std::sync::atomic::Ordering;
 
 use bevy_app::{App, AppExit, Plugin, Startup, Update};
 use bevy_ecs::prelude::{Commands, Local, MessageReader, MessageWriter, Res};
-use bevy_window::{CursorMoved, WindowFocused};
+use bevy_window::CursorMoved;
 use plurimus::core::bevy_camera::{Camera, ClearColorConfig};
 use plurimus::core::{CellSize, Edge, TerminalCamera, UiCamera, UiWidget};
 use plurimus::term::bevy_input::keyboard::{KeyCode, KeyboardInput};
-use plurimus::term::bevy_input::mouse::MouseButtonInput;
-use plurimus::term::{HeldModifiers, InputCapabilities, TermPlugin};
+use plurimus::term::{ButtonInput, HeldModifiers, InputCapabilities, MouseButton, TermPlugin};
 use ratatui_widgets::paragraph::Paragraph;
 
 use crate::doom_thread::DoomHandle;
@@ -102,18 +101,13 @@ fn quit_on_ctrl_c(
     }
 }
 
-// A focus loss drops held buttons without a release message, so the
-// engine would otherwise keep firing after an alt-tab.
-fn forward_buttons(
-    mut buttons: MessageReader<MouseButtonInput>,
-    mut focus: MessageReader<WindowFocused>,
-    handle: Res<DoomHandle>,
-) {
-    for key in buttons.read().filter_map(keymap::map_mouse) {
-        let _ = handle.keys.send(key);
-    }
-    if focus.read().any(|change| !change.focused) {
-        for key in keymap::button_releases() {
+// Polled rather than read as messages: a focus loss releases held buttons
+// into `just_released` without writing a release message.
+fn forward_buttons(buttons: Res<ButtonInput<MouseButton>>, handle: Res<DoomHandle>) {
+    let presses = buttons.get_just_pressed().map(|button| (*button, true));
+    let releases = buttons.get_just_released().map(|button| (*button, false));
+    for (button, pressed) in presses.chain(releases) {
+        if let Some(key) = keymap::map_mouse(button, pressed) {
             let _ = handle.keys.send(key);
         }
     }

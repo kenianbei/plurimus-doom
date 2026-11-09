@@ -44,7 +44,6 @@ bevy_shader = { version = "0.20", optional = true }
 bevy_transform = { version = "0.20", optional = true }
 
 [dev-dependencies]
-bevy_math = "0.20"
 bevy_tasks = "0.20"
 
 [lints.rust]

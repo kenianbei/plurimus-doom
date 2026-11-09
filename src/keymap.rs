@@ -4,26 +4,14 @@ use doomgeneric::input::KeyData;
 use doomgeneric::input::keys;
 use plurimus::term::MouseButton;
 use plurimus::term::bevy_input::keyboard::{Key, KeyboardInput};
-use plurimus::term::bevy_input::mouse::MouseButtonInput;
 
-pub fn map_mouse(input: &MouseButtonInput) -> Option<KeyData> {
-    let key = match input.button {
+pub fn map_mouse(button: MouseButton, pressed: bool) -> Option<KeyData> {
+    let key = match button {
         MouseButton::Left => *keys::KEY_FIRE,
         MouseButton::Right => *keys::KEY_USE,
         _ => return None,
     };
-    Some(KeyData {
-        pressed: input.state.is_pressed(),
-        key,
-    })
-}
-
-/// Releases of every key a mouse button maps to.
-pub fn button_releases() -> [KeyData; 2] {
-    [*keys::KEY_FIRE, *keys::KEY_USE].map(|key| KeyData {
-        pressed: false,
-        key,
-    })
+    Some(KeyData { pressed, key })
 }
 
 pub fn map_key(input: &KeyboardInput, shifted: bool) -> Vec<KeyData> {
@@ -60,15 +48,10 @@ fn doom_key(key: &Key) -> Option<u8> {
         Key::ArrowDown => Some(*keys::KEY_DOWN),
         Key::Escape => Some(keys::KEY_ESCAPE),
         Key::Enter => Some(keys::KEY_ENTER),
-        Key::Character(text) => single_char(text).and_then(char_key),
-        _ => None,
-    }
-}
-
-fn single_char(text: &str) -> Option<char> {
-    let mut chars = text.chars();
-    match (chars.next(), chars.next()) {
-        (Some(character), None) => Some(character.to_ascii_lowercase()),
+        Key::Character(text) => match text.as_bytes() {
+            [byte] => char_key(char::from(byte.to_ascii_lowercase())),
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -88,70 +71,27 @@ fn char_key(character: char) -> Option<u8> {
 }
 
 #[cfg(test)]
-pub mod test_input {
-    use bevy_ecs::entity::Entity;
-    use plurimus::term::MouseButton;
-    use plurimus::term::bevy_input::ButtonState;
-    use plurimus::term::bevy_input::keyboard::{Key, KeyboardInput};
-    use plurimus::term::bevy_input::mouse::MouseButtonInput;
-    use plurimus::term::physical_code;
-
-    pub fn key(logical_key: Key, state: ButtonState) -> KeyboardInput {
-        KeyboardInput {
-            key_code: physical_code(&logical_key),
-            logical_key,
-            state,
-            text: None,
-            repeat: false,
-            window: Entity::PLACEHOLDER,
-        }
-    }
-
-    pub fn press(logical_key: Key) -> KeyboardInput {
-        key(logical_key, ButtonState::Pressed)
-    }
-
-    pub fn character(text: &str) -> Key {
-        Key::Character(text.into())
-    }
-
-    pub fn button(button: MouseButton, state: ButtonState) -> MouseButtonInput {
-        MouseButtonInput {
-            button,
-            state,
-            window: Entity::PLACEHOLDER,
-        }
-    }
-}
-
-#[cfg(test)]
 mod tests {
-    use plurimus::term::bevy_input::ButtonState;
-
-    use super::test_input::{button, character, key, press};
     use super::*;
-
-    fn release(logical_key: Key) -> KeyboardInput {
-        key(logical_key, ButtonState::Released)
-    }
+    use crate::test_input::{character, press, release};
 
     #[test]
     fn left_click_maps_to_fire() {
-        let key = map_mouse(&button(MouseButton::Left, ButtonState::Pressed)).unwrap();
+        let key = map_mouse(MouseButton::Left, true).unwrap();
         assert!(key.pressed);
         assert_eq!(key.key, *keys::KEY_FIRE);
     }
 
     #[test]
     fn right_release_maps_to_unpressed_use() {
-        let key = map_mouse(&button(MouseButton::Right, ButtonState::Released)).unwrap();
+        let key = map_mouse(MouseButton::Right, false).unwrap();
         assert!(!key.pressed);
         assert_eq!(key.key, *keys::KEY_USE);
     }
 
     #[test]
     fn other_buttons_are_dropped() {
-        assert!(map_mouse(&button(MouseButton::Middle, ButtonState::Pressed)).is_none());
+        assert!(map_mouse(MouseButton::Middle, true).is_none());
     }
 
     #[test]

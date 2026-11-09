@@ -4,13 +4,11 @@ use std::sync::mpsc::{self, Receiver};
 
 use super::*;
 use crate::doom_thread::{FrameHandle, SharedFrame};
-use crate::keymap::test_input::{button, character, press};
+use crate::test_input::{button, character, press};
 use bevy_app::App;
 use bevy_ecs::entity::Entity;
-use bevy_math::Vec2;
 use doomgeneric::input::KeyData;
 use plurimus::core::{CorePlugin, FrameBuffer, TerminalRenderApp, TerminalSize};
-use plurimus::term::MouseButton;
 use plurimus::term::bevy_input::ButtonState;
 use plurimus::term::bevy_input::keyboard::Key;
 
@@ -48,7 +46,7 @@ fn doom_app(frame: SharedFrame) -> DoomTestApp {
 fn cursor_at(x: f32) -> CursorMoved {
     CursorMoved {
         window: Entity::PLACEHOLDER,
-        position: Vec2::new(x, 0.5),
+        position: [x, 0.5].into(),
         delta: None,
     }
 }
@@ -160,23 +158,21 @@ fn held_shift_turns_arrows_into_strafe() {
 }
 
 #[test]
-fn losing_focus_releases_fire_and_use() {
+fn losing_focus_releases_the_held_button() {
     let DoomTestApp { mut app, keys, .. } = doom_app(red_frame());
+    app.world_mut()
+        .write_message(button(MouseButton::Left, ButtonState::Pressed));
+    app.update();
+    keys.try_iter().for_each(drop);
 
-    app.world_mut().write_message(WindowFocused {
+    app.world_mut().write_message(bevy_window::WindowFocused {
         window: Entity::PLACEHOLDER,
         focused: false,
     });
     app.update();
 
     let released: Vec<KeyData> = keys.try_iter().collect();
-    assert!(released.iter().all(|key| !key.pressed));
-    let codes: Vec<u8> = released.iter().map(|key| key.key).collect();
-    assert_eq!(
-        codes,
-        [
-            *doomgeneric::input::keys::KEY_FIRE,
-            *doomgeneric::input::keys::KEY_USE
-        ]
-    );
+    assert_eq!(released.len(), 1);
+    assert!(!released[0].pressed);
+    assert_eq!(released[0].key, *doomgeneric::input::keys::KEY_FIRE);
 }

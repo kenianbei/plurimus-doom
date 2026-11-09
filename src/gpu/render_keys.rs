@@ -1,23 +1,13 @@
 //! Render-mode hotkeys: `t` cycles the pixel-to-cell strategy and `g`
 //! toggles the edge overlay on every 3d camera.
 
-use bevy_ecs::prelude::{Commands, Entity, MessageReader, Query};
+use bevy_ecs::prelude::{Commands, Entity, Has, MessageReader, Query};
 use plurimus::render3d::{EdgeOverlay, LuminanceRamp, RAMP_SHADING, Strategy3d};
 use plurimus::term::bevy_input::keyboard::{KeyCode, KeyboardInput};
 
-type RenderCameras<'w, 's> = Query<
-    'w,
-    's,
-    (
-        Entity,
-        &'static mut Strategy3d,
-        Option<&'static EdgeOverlay>,
-    ),
->;
-
 pub fn toggle_strategy(
     mut keys: MessageReader<KeyboardInput>,
-    mut cameras: RenderCameras,
+    mut cameras: Query<(Entity, &mut Strategy3d, Has<EdgeOverlay>)>,
     mut commands: Commands,
 ) {
     for input in keys.read() {
@@ -47,9 +37,12 @@ fn next_strategy(strategy: Strategy3d) -> Strategy3d {
     }
 }
 
-fn toggle_edges(cameras: &RenderCameras, commands: &mut Commands) {
-    for (camera, _, overlay) in cameras.iter() {
-        if overlay.is_some() {
+fn toggle_edges(
+    cameras: &Query<(Entity, &mut Strategy3d, Has<EdgeOverlay>)>,
+    commands: &mut Commands,
+) {
+    for (camera, _, has_overlay) in cameras.iter() {
+        if has_overlay {
             commands.entity(camera).remove::<EdgeOverlay>();
         } else {
             commands.entity(camera).insert(EdgeOverlay::default());
@@ -64,7 +57,7 @@ mod tests {
     use plurimus::term::TermPlugin;
 
     use super::*;
-    use crate::keymap::test_input::{character, press};
+    use crate::test_input::{character, press};
 
     fn render_keys_app() -> (App, Entity) {
         let mut app = App::new();
