@@ -1,32 +1,30 @@
-//! Maps plurimus key and mouse messages to Doom key codes.
+//! Maps bevy key and mouse-button input to Doom key codes.
 
 use doomgeneric::input::KeyData;
 use doomgeneric::input::keys;
-use plurimus::term::{KeyCode, KeyKind, KeyMessage, MouseButton, MouseKind, MouseMessage};
+use plurimus::term::MouseButton;
+use plurimus::term::bevy_input::keyboard::{Key, KeyboardInput};
+use plurimus::term::bevy_input::mouse::MouseButtonInput;
 
-pub fn map_mouse(message: &MouseMessage) -> Option<KeyData> {
-    let (pressed, button) = match message.kind {
-        MouseKind::Down(button) => (true, button),
-        MouseKind::Up(button) => (false, button),
-        _ => return None,
-    };
-    let key = match button {
+pub fn map_mouse(input: &MouseButtonInput) -> Option<KeyData> {
+    let key = match input.button {
         MouseButton::Left => *keys::KEY_FIRE,
         MouseButton::Right => *keys::KEY_USE,
         _ => return None,
     };
-    Some(KeyData { pressed, key })
+    Some(KeyData {
+        pressed: input.state.is_pressed(),
+        key,
+    })
 }
 
-pub fn map_key(message: &KeyMessage) -> Vec<KeyData> {
-    let pressed = match message.kind {
-        KeyKind::Press => true,
-        KeyKind::Release => false,
-        KeyKind::Repeat => return Vec::new(),
-    };
-    let code = message.code.held_as();
-    strafe_codes(code, message.modifiers.shift, pressed)
-        .unwrap_or_else(|| doom_key(code).into_iter().collect())
+pub fn map_key(input: &KeyboardInput, shifted: bool) -> Vec<KeyData> {
+    if input.repeat {
+        return Vec::new();
+    }
+    let pressed = input.state.is_pressed();
+    strafe_codes(&input.logical_key, shifted, pressed)
+        .unwrap_or_else(|| doom_key(&input.logical_key).into_iter().collect())
         .into_iter()
         .map(|key| KeyData { pressed, key })
         .collect()
@@ -35,10 +33,10 @@ pub fn map_key(message: &KeyMessage) -> Vec<KeyData> {
 /// Left/right turn, or strafe while shift is held. A release covers
 /// both variants, so dropping shift mid-hold cannot leave either key
 /// stuck down.
-fn strafe_codes(code: KeyCode, shifted: bool, pressed: bool) -> Option<Vec<u8>> {
-    let (turn, strafe) = match code {
-        KeyCode::Left => (*keys::KEY_LEFT, *keys::KEY_STRAFELEFT),
-        KeyCode::Right => (*keys::KEY_RIGHT, *keys::KEY_STRAFERIGHT),
+fn strafe_codes(key: &Key, shifted: bool, pressed: bool) -> Option<Vec<u8>> {
+    let (turn, strafe) = match key {
+        Key::ArrowLeft => (*keys::KEY_LEFT, *keys::KEY_STRAFELEFT),
+        Key::ArrowRight => (*keys::KEY_RIGHT, *keys::KEY_STRAFERIGHT),
         _ => return None,
     };
     Some(match (pressed, shifted) {
@@ -48,13 +46,21 @@ fn strafe_codes(code: KeyCode, shifted: bool, pressed: bool) -> Option<Vec<u8>> 
     })
 }
 
-fn doom_key(code: KeyCode) -> Option<u8> {
-    match code {
-        KeyCode::Up => Some(*keys::KEY_UP),
-        KeyCode::Down => Some(*keys::KEY_DOWN),
-        KeyCode::Esc => Some(keys::KEY_ESCAPE),
-        KeyCode::Enter => Some(keys::KEY_ENTER),
-        KeyCode::Char(character) => char_key(character),
+fn doom_key(key: &Key) -> Option<u8> {
+    match key {
+        Key::ArrowUp => Some(*keys::KEY_UP),
+        Key::ArrowDown => Some(*keys::KEY_DOWN),
+        Key::Escape => Some(keys::KEY_ESCAPE),
+        Key::Enter => Some(keys::KEY_ENTER),
+        Key::Character(text) => single_char(text).and_then(char_key),
+        _ => None,
+    }
+}
+
+fn single_char(text: &str) -> Option<char> {
+    let mut chars = text.chars();
+    match (chars.next(), chars.next()) {
+        (Some(character), None) => Some(character.to_ascii_lowercase()),
         _ => None,
     }
 }
@@ -74,66 +80,94 @@ fn char_key(character: char) -> Option<u8> {
 }
 
 #[cfg(test)]
-mod tests {
-    use plurimus::core::ratatui_core::layout::Position;
-    use plurimus::term::KeyModifiers;
+pub mod test_input {
+    use bevy_ecs::entity::Entity;
+    use plurimus::term::MouseButton;
+    use plurimus::term::bevy_input::ButtonState;
+    use plurimus::term::bevy_input::keyboard::{Key, KeyboardInput};
+    use plurimus::term::bevy_input::mouse::MouseButtonInput;
+    use plurimus::term::physical_code;
 
+    pub fn key(logical_key: Key, state: ButtonState) -> KeyboardInput {
+        KeyboardInput {
+            key_code: physical_code(&logical_key),
+            logical_key,
+            state,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        }
+    }
+
+    pub fn press(logical_key: Key) -> KeyboardInput {
+        key(logical_key, ButtonState::Pressed)
+    }
+
+    pub fn character(text: &str) -> Key {
+        Key::Character(text.into())
+    }
+
+    pub fn button(button: MouseButton, state: ButtonState) -> MouseButtonInput {
+        MouseButtonInput {
+            button,
+            state,
+            window: Entity::PLACEHOLDER,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use plurimus::term::bevy_input::ButtonState;
+
+    use super::test_input::{button, character, key, press};
     use super::*;
 
-    fn message(code: KeyCode, kind: KeyKind) -> KeyMessage {
-        KeyMessage::new(code, KeyModifiers::default(), kind)
-    }
-
-    fn shifted(code: KeyCode, kind: KeyKind) -> KeyMessage {
-        KeyMessage::new(code, KeyModifiers::default().with_shift(true), kind)
-    }
-
-    fn mouse(kind: MouseKind) -> MouseMessage {
-        MouseMessage::new(kind, Position::new(0, 0), KeyModifiers::default())
+    fn release(logical_key: Key) -> KeyboardInput {
+        key(logical_key, ButtonState::Released)
     }
 
     #[test]
     fn left_click_maps_to_fire() {
-        let key = map_mouse(&mouse(MouseKind::Down(MouseButton::Left))).unwrap();
+        let key = map_mouse(&button(MouseButton::Left, ButtonState::Pressed)).unwrap();
         assert!(key.pressed);
         assert_eq!(key.key, *keys::KEY_FIRE);
     }
 
     #[test]
     fn right_release_maps_to_unpressed_use() {
-        let key = map_mouse(&mouse(MouseKind::Up(MouseButton::Right))).unwrap();
+        let key = map_mouse(&button(MouseButton::Right, ButtonState::Released)).unwrap();
         assert!(!key.pressed);
         assert_eq!(key.key, *keys::KEY_USE);
     }
 
     #[test]
-    fn motion_and_other_buttons_are_dropped() {
-        assert!(map_mouse(&mouse(MouseKind::Moved)).is_none());
-        assert!(map_mouse(&mouse(MouseKind::Down(MouseButton::Middle))).is_none());
+    fn other_buttons_are_dropped() {
+        assert!(map_mouse(&button(MouseButton::Middle, ButtonState::Pressed)).is_none());
     }
 
     #[test]
     fn arrows_move_and_turn() {
-        let keys_down = map_key(&message(KeyCode::Up, KeyKind::Press));
+        let keys_down = map_key(&press(Key::ArrowUp), false);
         assert_eq!(keys_down.len(), 1);
         assert!(keys_down[0].pressed);
         assert_eq!(keys_down[0].key, *keys::KEY_UP);
 
-        let turn = map_key(&message(KeyCode::Left, KeyKind::Press));
+        let turn = map_key(&press(Key::ArrowLeft), false);
         assert_eq!(turn.len(), 1);
         assert_eq!(turn[0].key, *keys::KEY_LEFT);
     }
 
     #[test]
     fn shifted_arrows_strafe() {
-        let strafe = map_key(&shifted(KeyCode::Right, KeyKind::Press));
+        let strafe = map_key(&press(Key::ArrowRight), true);
         assert_eq!(strafe.len(), 1);
         assert_eq!(strafe[0].key, *keys::KEY_STRAFERIGHT);
     }
 
     #[test]
     fn arrow_releases_cover_turn_and_strafe() {
-        let released = map_key(&message(KeyCode::Right, KeyKind::Release));
+        let released = map_key(&release(Key::ArrowRight), false);
         let codes: Vec<u8> = released.iter().map(|key| key.key).collect();
         assert!(released.iter().all(|key| !key.pressed));
         assert_eq!(codes, [*keys::KEY_RIGHT, *keys::KEY_STRAFERIGHT]);
@@ -142,13 +176,13 @@ mod tests {
     #[test]
     fn wasd_moves_and_strafes() {
         let pairs = [
-            ('w', *keys::KEY_UP),
-            ('s', *keys::KEY_DOWN),
-            ('a', *keys::KEY_STRAFELEFT),
-            ('d', *keys::KEY_STRAFERIGHT),
+            ("w", *keys::KEY_UP),
+            ("s", *keys::KEY_DOWN),
+            ("a", *keys::KEY_STRAFELEFT),
+            ("d", *keys::KEY_STRAFERIGHT),
         ];
-        for (character, expected) in pairs {
-            let pressed = map_key(&message(KeyCode::Char(character), KeyKind::Press));
+        for (text, expected) in pairs {
+            let pressed = map_key(&press(character(text)), false);
             assert_eq!(pressed.len(), 1);
             assert!(pressed[0].pressed);
             assert_eq!(pressed[0].key, expected);
@@ -157,7 +191,7 @@ mod tests {
 
     #[test]
     fn wasd_release_unpresses() {
-        let released = map_key(&message(KeyCode::Char('a'), KeyKind::Release));
+        let released = map_key(&release(character("a")), false);
         assert_eq!(released.len(), 1);
         assert!(!released[0].pressed);
         assert_eq!(released[0].key, *keys::KEY_STRAFELEFT);
@@ -165,23 +199,23 @@ mod tests {
 
     #[test]
     fn shifted_wasd_still_strafes() {
-        let strafe = map_key(&shifted(KeyCode::Char('D'), KeyKind::Press));
+        let strafe = map_key(&press(character("D")), true);
         assert_eq!(strafe.len(), 1);
         assert_eq!(strafe[0].key, *keys::KEY_STRAFERIGHT);
     }
 
     #[test]
     fn space_fires_and_e_uses() {
-        let fire = map_key(&message(KeyCode::Char(' '), KeyKind::Press));
+        let fire = map_key(&press(character(" ")), false);
         assert_eq!(fire[0].key, *keys::KEY_FIRE);
 
-        let along = map_key(&message(KeyCode::Char('E'), KeyKind::Press));
+        let along = map_key(&press(character("E")), true);
         assert_eq!(along[0].key, *keys::KEY_USE);
     }
 
     #[test]
     fn release_maps_to_unpressed() {
-        let released = map_key(&message(KeyCode::Esc, KeyKind::Release));
+        let released = map_key(&release(Key::Escape), false);
         assert_eq!(released.len(), 1);
         assert!(!released[0].pressed);
         assert_eq!(released[0].key, keys::KEY_ESCAPE);
@@ -189,20 +223,27 @@ mod tests {
 
     #[test]
     fn repeat_is_dropped() {
-        assert!(map_key(&message(KeyCode::Char('e'), KeyKind::Repeat)).is_empty());
+        let repeat = KeyboardInput {
+            repeat: true,
+            ..press(character("e"))
+        };
+        assert!(map_key(&repeat, false).is_empty());
     }
 
     #[test]
     fn unmapped_ascii_passes_through() {
-        let key = map_key(&message(KeyCode::Char('y'), KeyKind::Press));
+        let key = map_key(&press(character("y")), false);
         assert_eq!(key[0].key, b'y');
 
-        let upper = map_key(&shifted(KeyCode::Char('Y'), KeyKind::Press));
+        let upper = map_key(&press(character("Y")), true);
         assert_eq!(upper[0].key, b'y');
+
+        let punctuation = map_key(&press(character("-")), false);
+        assert_eq!(punctuation[0].key, b'-');
     }
 
     #[test]
     fn non_ascii_keys_are_dropped() {
-        assert!(map_key(&message(KeyCode::Home, KeyKind::Press)).is_empty());
+        assert!(map_key(&press(Key::Home), false).is_empty());
     }
 }

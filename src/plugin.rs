@@ -5,8 +5,12 @@ use std::sync::atomic::Ordering;
 
 use bevy_app::{App, AppExit, Plugin, Startup, Update};
 use bevy_ecs::prelude::{Commands, Local, MessageReader, MessageWriter, Res};
-use plurimus::core::{Background, Edge, TerminalCamera, UiCamera, UiWidget, Viewport};
-use plurimus::term::{InputCapabilities, KeyCode, KeyKind, KeyMessage, MouseMessage, TermPlugin};
+use bevy_window::CursorMoved;
+use plurimus::core::bevy_camera::{Camera, ClearColorConfig};
+use plurimus::core::{CellSize, Edge, TerminalCamera, UiCamera, UiWidget};
+use plurimus::term::bevy_input::keyboard::{KeyCode, KeyboardInput};
+use plurimus::term::bevy_input::mouse::MouseButtonInput;
+use plurimus::term::{HeldModifiers, InputCapabilities, TermPlugin};
 use ratatui_widgets::paragraph::Paragraph;
 
 use crate::doom_thread::DoomHandle;
@@ -26,19 +30,27 @@ impl Plugin for DoomPlugin {
             app.add_plugins(TermPlugin);
         }
         app.add_systems(Startup, spawn_hud_camera);
-        app.add_systems(Update, (forward_keys, forward_mouse, quit_on_ctrl_c));
+        app.add_systems(
+            Update,
+            (forward_keys, forward_buttons, forward_aim, quit_on_ctrl_c),
+        );
     }
 }
 
 fn spawn_hud_camera(mut commands: Commands, capabilities: Res<InputCapabilities>) {
-    let camera = TerminalCamera::default()
-        .with_order(HUD_ORDER)
-        .with_background(Background::Transparent)
-        .with_viewport(Viewport::Docked {
-            edge: Edge::Top,
-            cells: HUD_HEIGHT_CELLS,
-        });
-    let hud_camera = commands.spawn(camera).id();
+    let hud_camera = commands
+        .spawn((
+            TerminalCamera::Docked {
+                edge: Edge::Top,
+                cells: HUD_HEIGHT_CELLS,
+            },
+            Camera {
+                order: HUD_ORDER,
+                clear_color: ClearColorConfig::None,
+                ..Camera::default()
+            },
+        ))
+        .id();
     commands.spawn((
         UiWidget::new(Paragraph::new(hud_text(&capabilities))),
         UiCamera(hud_camera),
@@ -62,9 +74,14 @@ fn hud_text(capabilities: &InputCapabilities) -> String {
     )
 }
 
-fn forward_keys(mut keys: MessageReader<KeyMessage>, handle: Res<DoomHandle>) {
-    for message in keys.read() {
-        for key in keymap::map_key(message) {
+fn forward_keys(
+    mut keys: MessageReader<KeyboardInput>,
+    modifiers: HeldModifiers,
+    handle: Res<DoomHandle>,
+) {
+    let shifted = modifiers.get().shift;
+    for input in keys.read() {
+        for key in keymap::map_key(input, shifted) {
             let _ = handle.keys.send(key);
         }
     }
@@ -72,27 +89,33 @@ fn forward_keys(mut keys: MessageReader<KeyMessage>, handle: Res<DoomHandle>) {
 
 // Doom swallows every key it maps, so the quit chord is the app's own
 // policy rather than anything the terminal backend provides.
-fn quit_on_ctrl_c(mut keys: MessageReader<KeyMessage>, mut exit: MessageWriter<AppExit>) {
-    for message in keys.read() {
-        if message.kind == KeyKind::Press
-            && message.modifiers.ctrl
-            && message.code.held_as() == KeyCode::Char('c')
-        {
+fn quit_on_ctrl_c(
+    mut keys: MessageReader<KeyboardInput>,
+    modifiers: HeldModifiers,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let is_ctrl_held = modifiers.get().ctrl;
+    for input in keys.read() {
+        if is_ctrl_held && input.state.is_pressed() && input.key_code == KeyCode::KeyC {
             exit.write(AppExit::Success);
         }
     }
 }
 
-fn forward_mouse(
-    mut mice: MessageReader<MouseMessage>,
+fn forward_buttons(mut buttons: MessageReader<MouseButtonInput>, handle: Res<DoomHandle>) {
+    for key in buttons.read().filter_map(keymap::map_mouse) {
+        let _ = handle.keys.send(key);
+    }
+}
+
+fn forward_aim(
+    mut moves: MessageReader<CursorMoved>,
     mut tracker: Local<AimTracker>,
+    cell: Res<CellSize>,
     handle: Res<DoomHandle>,
 ) {
-    for message in mice.read() {
-        if let Some(key) = keymap::map_mouse(message) {
-            let _ = handle.keys.send(key);
-        }
-        if let Some(dx) = tracker.track(message) {
+    for moved in moves.read() {
+        if let Some(dx) = tracker.track(moved.position.x, *cell) {
             handle.turn.fetch_add(dx, Ordering::Relaxed);
         }
     }
@@ -106,11 +129,15 @@ mod tests {
 
     use super::*;
     use crate::doom_thread::{FrameHandle, SharedFrame};
+    use crate::keymap::test_input::{button, character, press};
     use bevy_app::App;
+    use bevy_ecs::entity::Entity;
+    use bevy_math::Vec2;
     use doomgeneric::input::KeyData;
-    use plurimus::core::ratatui_core::layout::Position;
     use plurimus::core::{CorePlugin, FrameBuffer, TerminalRenderApp, TerminalSize};
-    use plurimus::term::{KeyCode, KeyKind, KeyModifiers, MouseButton, MouseKind};
+    use plurimus::term::MouseButton;
+    use plurimus::term::bevy_input::ButtonState;
+    use plurimus::term::bevy_input::keyboard::Key;
 
     const RED: u32 = 0xff0000;
 
@@ -143,8 +170,12 @@ mod tests {
         }
     }
 
-    fn mouse(kind: MouseKind, column: u16) -> MouseMessage {
-        MouseMessage::new(kind, Position::new(column, 0), KeyModifiers::default())
+    fn cursor_at(x: f32) -> CursorMoved {
+        CursorMoved {
+            window: Entity::PLACEHOLDER,
+            position: Vec2::new(x, 0.5),
+            delta: None,
+        }
     }
 
     fn red_frame() -> SharedFrame {
@@ -171,7 +202,7 @@ mod tests {
         assert_eq!(content.symbol(), "▀");
         assert_eq!(content.fg, Color::Rgb(255, 0, 0));
         let bar = frame.0.cell((0, 2)).unwrap();
-        assert_eq!(bar.bg, Color::Black);
+        assert_eq!(bar.bg, Color::Reset);
     }
 
     #[test]
@@ -195,7 +226,7 @@ mod tests {
         } = doom_app(red_frame());
 
         app.world_mut()
-            .write_message(mouse(MouseKind::Down(MouseButton::Left), 0));
+            .write_message(button(MouseButton::Left, ButtonState::Pressed));
         app.update();
 
         let key = keys.try_recv().unwrap();
@@ -208,9 +239,8 @@ mod tests {
     fn mouse_motion_forwards_aim_deltas() {
         let DoomTestApp { mut app, turn, .. } = doom_app(red_frame());
 
-        for column in [10, 14] {
-            app.world_mut()
-                .write_message(mouse(MouseKind::Moved, column));
+        for x in [10.5, 14.5] {
+            app.world_mut().write_message(cursor_at(x));
         }
         app.update();
 
@@ -221,11 +251,9 @@ mod tests {
     fn the_quit_chord_holds_under_shift() {
         let DoomTestApp { mut app, .. } = doom_app(red_frame());
 
-        app.world_mut().write_message(KeyMessage::new(
-            KeyCode::Char('C'),
-            KeyModifiers::default().with_ctrl(true).with_shift(true),
-            KeyKind::Press,
-        ));
+        for key in [Key::Control, Key::Shift, character("C")] {
+            app.world_mut().write_message(press(key));
+        }
         app.update();
 
         assert!(app.should_exit().is_some());
@@ -235,15 +263,24 @@ mod tests {
     fn key_messages_forward_to_the_doom_thread() {
         let DoomTestApp { mut app, keys, .. } = doom_app(red_frame());
 
-        app.world_mut().write_message(KeyMessage::new(
-            KeyCode::Char(' '),
-            KeyModifiers::default(),
-            KeyKind::Press,
-        ));
+        app.world_mut().write_message(press(character(" ")));
         app.update();
 
         let key = keys.try_recv().unwrap();
         assert!(key.pressed);
         assert_eq!(key.key, *doomgeneric::input::keys::KEY_FIRE);
+    }
+
+    #[test]
+    fn held_shift_turns_arrows_into_strafe() {
+        let DoomTestApp { mut app, keys, .. } = doom_app(red_frame());
+
+        for key in [Key::Shift, Key::ArrowRight] {
+            app.world_mut().write_message(press(key));
+        }
+        app.update();
+
+        let key = keys.try_recv().unwrap();
+        assert_eq!(key.key, *doomgeneric::input::keys::KEY_STRAFERIGHT);
     }
 }

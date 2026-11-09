@@ -5,28 +5,31 @@
 use bevy_app::{App, Plugin, Startup, Update};
 use bevy_asset::{Asset, Assets, Handle, RenderAssetUsages, embedded_asset};
 use bevy_camera::Camera3d;
-use bevy_core_pipeline::tonemapping::Tonemapping;
-use bevy_ecs::prelude::{Commands, Entity, MessageReader, Query, Res, ResMut, Resource};
+use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
+use bevy_ecs::prelude::{Commands, Res, ResMut, Resource};
 use bevy_image::Image;
-use bevy_math::primitives::Rectangle;
 use bevy_mesh::{Mesh, Mesh3d};
 use bevy_pbr::{Material, MaterialPlugin, MeshMaterial3d, PbrPlugin};
 use bevy_reflect::TypePath;
 use bevy_render::render_resource::{AsBindGroup, Extent3d, TextureDimension, TextureFormat};
 use bevy_shader::ShaderRef;
+use bevy_shape::Rectangle;
 use bevy_transform::components::Transform;
 use doomgeneric::game::{DOOMGENERIC_RESX, DOOMGENERIC_RESY};
-use plurimus::core::TerminalCamera;
 use plurimus::core::raster::PixelGrid;
-use plurimus::render3d::{
-    EdgeOverlay, LuminanceRamp, Plugin3d, RAMP_SHADING, Render3dPlugins, Strategy3d,
-};
-use plurimus::term::{KeyCode, KeyKind, KeyMessage, TermPlugin};
+use plurimus::core::{CellSize, TerminalCamera};
+use plurimus::render3d::{Plugin3d, Render3dPlugins, Strategy3d};
+use plurimus::term::TermPlugin;
 
 use crate::doom_thread::{DoomHandle, SharedFrame};
 
+mod render_keys;
+
 const QUAD_HEIGHT: f32 = 2.0;
 const CAMERA_DISTANCE: f32 = 2.42;
+// A terminal cell is about twice as tall as it is wide; the 3d projection
+// is fitted to this shape so the frame keeps its proportions.
+const TERMINAL_CELL: CellSize = CellSize { x: 1.0, y: 2.0 };
 
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 struct CrtMaterial {
@@ -58,11 +61,12 @@ impl Plugin for GpuPlugin {
         // Render3dPlugins stops at the render stack, so the material
         // system is ours to add - MaterialPlugin alone has no mesh
         // pipeline behind it.
+        app.insert_resource(TERMINAL_CELL);
         app.add_plugins((Render3dPlugins, PbrPlugin::default(), Plugin3d));
         embedded_asset!(app, "crt.wgsl");
         app.add_plugins(MaterialPlugin::<CrtMaterial>::default());
         app.add_systems(Startup, spawn_screen);
-        app.add_systems(Update, (upload_frame, toggle_strategy));
+        app.add_systems(Update, (upload_frame, render_keys::toggle_strategy));
     }
 }
 
@@ -84,55 +88,11 @@ fn spawn_screen(
     commands.spawn((
         Camera3d::default(),
         Tonemapping::None,
+        DebandDither::Disabled,
         TerminalCamera::default(),
         Strategy3d::default(),
         Transform::from_xyz(0.0, 0.0, CAMERA_DISTANCE),
     ));
-}
-
-fn toggle_strategy(
-    mut keys: MessageReader<KeyMessage>,
-    mut cameras: Query<(Entity, &mut Strategy3d, Option<&EdgeOverlay>)>,
-    mut commands: Commands,
-) {
-    for message in keys.read() {
-        if message.kind != KeyKind::Press {
-            continue;
-        }
-        match message.code {
-            KeyCode::Char('t') => {
-                for (_, mut strategy, _) in &mut cameras {
-                    *strategy = next_strategy(*strategy);
-                }
-            }
-            KeyCode::Char('g') => toggle_edges(&cameras, &mut commands),
-            _ => {}
-        }
-    }
-}
-
-fn next_strategy(strategy: Strategy3d) -> Strategy3d {
-    match strategy {
-        Strategy3d::Halfblocks => Strategy3d::Luminance(LuminanceRamp::new(RAMP_SHADING)),
-        Strategy3d::Luminance(ramp) if ramp.characters == RAMP_SHADING => {
-            Strategy3d::Luminance(LuminanceRamp::default())
-        }
-        Strategy3d::Luminance(_) => Strategy3d::Braille,
-        _ => Strategy3d::Halfblocks,
-    }
-}
-
-fn toggle_edges(
-    cameras: &Query<(Entity, &mut Strategy3d, Option<&EdgeOverlay>)>,
-    commands: &mut Commands,
-) {
-    for (camera, _, overlay) in cameras.iter() {
-        if overlay.is_some() {
-            commands.entity(camera).remove::<EdgeOverlay>();
-        } else {
-            commands.entity(camera).insert(EdgeOverlay::default());
-        }
-    }
 }
 
 fn quad_width() -> f32 {
@@ -180,56 +140,7 @@ fn write_rgba(frame: &SharedFrame, image: &mut Image) {
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::App;
-    use plurimus::core::{CorePlugin, TerminalSize};
-    use plurimus::term::KeyModifiers;
-
     use super::*;
-
-    fn render_keys_app() -> (App, bevy_ecs::prelude::Entity) {
-        let mut app = App::new();
-        app.add_plugins((CorePlugin, TermPlugin));
-        app.insert_resource(TerminalSize::new(10, 4));
-        app.add_systems(Update, toggle_strategy);
-        let camera = app.world_mut().spawn(Strategy3d::default()).id();
-        (app, camera)
-    }
-
-    fn press(app: &mut App, character: char) {
-        app.world_mut().write_message(KeyMessage::new(
-            KeyCode::Char(character),
-            KeyModifiers::default(),
-            KeyKind::Press,
-        ));
-        app.update();
-    }
-
-    #[test]
-    fn t_cycles_the_strategy() {
-        let (mut app, camera) = render_keys_app();
-
-        let mut seen = Vec::new();
-        for _ in 0..4 {
-            press(&mut app, 't');
-            seen.push(*app.world().entity(camera).get::<Strategy3d>().unwrap());
-        }
-
-        assert!(matches!(seen[0], Strategy3d::Luminance(ramp) if ramp.characters == RAMP_SHADING));
-        assert!(matches!(seen[1], Strategy3d::Luminance(_)));
-        assert_eq!(seen[2], Strategy3d::Braille);
-        assert_eq!(seen[3], Strategy3d::Halfblocks);
-    }
-
-    #[test]
-    fn g_toggles_the_edge_overlay() {
-        let (mut app, camera) = render_keys_app();
-
-        press(&mut app, 'g');
-        assert!(app.world().entity(camera).get::<EdgeOverlay>().is_some());
-
-        press(&mut app, 'g');
-        assert!(app.world().entity(camera).get::<EdgeOverlay>().is_none());
-    }
 
     #[test]
     fn xrgb_pixels_upload_as_rgba_bytes() {
