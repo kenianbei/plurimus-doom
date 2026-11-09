@@ -40,7 +40,7 @@ struct CrtMaterial {
 
 impl Material for CrtMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://plurimus_doom/crt.wgsl".into()
+        "embedded://plurimus_doom/crt.wesl".into()
     }
 }
 
@@ -63,7 +63,7 @@ impl Plugin for GpuPlugin {
         // pipeline behind it.
         app.insert_resource(TERMINAL_CELL);
         app.add_plugins((Render3dPlugins, PbrPlugin::default(), Plugin3d));
-        embedded_asset!(app, "crt.wgsl");
+        embedded_asset!(app, "crt.wesl");
         app.add_plugins(MaterialPlugin::<CrtMaterial>::default());
         app.add_systems(Startup, spawn_screen);
         app.add_systems(Update, (upload_frame, render_keys::toggle_strategy));
@@ -169,28 +169,27 @@ mod gpu_smoke {
     use std::sync::mpsc;
 
     use bevy_app::{App, PluginsState};
-    use plurimus::core::{
-        CorePlugin, FrameBuffer, TerminalCamera, TerminalRenderApp, TerminalSize,
-    };
+    use doomgeneric::game::{DOOMGENERIC_RESX, DOOMGENERIC_RESY};
+    use plurimus::core::ratatui_core::style::Color;
+    use plurimus::core::{CorePlugin, FrameBuffer, TerminalRenderApp, TerminalSize};
 
     use super::GpuPlugin;
     use crate::doom_thread::{DoomHandle, FrameHandle, SharedFrame};
 
-    fn composed_frame(app: &App) -> String {
+    fn is_red(color: Color) -> bool {
+        matches!(color, Color::Rgb(red, green, blue) if red > 2 * green.max(blue))
+    }
+
+    fn has_red_cell(app: &App) -> bool {
         let buffer = &app
             .sub_app(TerminalRenderApp)
             .world()
             .resource::<FrameBuffer>()
             .0;
-        let area = buffer.area;
-        let mut frame = String::new();
-        for y in area.top()..area.bottom() {
-            for x in area.left()..area.right() {
-                frame.push_str(buffer.cell((x, y)).map_or(" ", |cell| cell.symbol()));
-            }
-            frame.push('\n');
-        }
-        frame
+        buffer
+            .content
+            .iter()
+            .any(|cell| is_red(cell.fg) || is_red(cell.bg))
     }
 
     const RED: u32 = 0x00ff_0000;
@@ -204,15 +203,14 @@ mod gpu_smoke {
         app.insert_resource(TerminalSize::new(40, 12));
         app.insert_resource(DoomHandle {
             frame: FrameHandle::new(SharedFrame {
-                pixels: vec![RED; 16],
-                width: 4,
-                height: 4,
+                pixels: vec![RED; DOOMGENERIC_RESX * DOOMGENERIC_RESY],
+                width: DOOMGENERIC_RESX,
+                height: DOOMGENERIC_RESY,
                 version: 1,
             }),
             keys,
             turn: Arc::new(AtomicI32::new(0)),
         });
-        app.world_mut().spawn(TerminalCamera::default());
         while app.plugins_state() == PluginsState::Adding {
             bevy_tasks::tick_global_task_pools_on_main_thread();
         }
@@ -223,11 +221,9 @@ mod gpu_smoke {
             app.update();
         }
 
-        let frame = composed_frame(&app);
         assert!(
-            frame.chars().any(|cell| cell != ' '),
-            "the CRT quad never reached the cells - the render stack is \
-             missing a plugin:\n{frame}"
+            has_red_cell(&app),
+            "the red engine frame never reached the cells through the CRT quad"
         );
     }
 }

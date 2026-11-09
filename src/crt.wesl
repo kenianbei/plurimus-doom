@@ -1,7 +1,7 @@
-#import bevy_pbr::forward_io::VertexOutput
+import bevy_pbr::render::forward_io::VertexOutput;
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var frame_texture: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var frame_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var frame_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var frame_sampler: sampler;
 
 const TAU: f32 = 6.28318530718;
 const SCANLINES: f32 = 200.0;
