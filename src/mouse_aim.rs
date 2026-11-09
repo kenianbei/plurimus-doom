@@ -5,7 +5,7 @@
 
 use std::os::raw::c_int;
 
-use plurimus::term::{MouseKind, MouseMessage};
+use plurimus::core::CellSize;
 
 const EV_MOUSE: c_int = 2;
 const ENGINE_DX_PER_CELL: i32 = 32;
@@ -38,76 +38,58 @@ pub fn post_turn(dx: i32) {
     unsafe { D_PostEvent(&mut event) };
 }
 
-/// Differences the absolute cell positions of the mouse message stream
-/// into engine turn deltas.
+/// Differences the pointer's absolute positions into engine turn deltas,
+/// in whole columns so the turn rate holds at any [`CellSize`].
 #[derive(Default)]
 pub struct AimTracker {
-    last_column: Option<u16>,
+    last_column: Option<i32>,
 }
 
 impl AimTracker {
-    pub fn track(&mut self, message: &MouseMessage) -> Option<i32> {
-        match message.kind {
-            MouseKind::Drag(_) | MouseKind::Moved => self.turn(message.position.x),
-            _ => None,
-        }
-    }
-
-    fn turn(&mut self, column: u16) -> Option<i32> {
+    pub fn track(&mut self, position_x: f32, cell: CellSize) -> Option<i32> {
+        let column = (position_x / cell.x).floor() as i32;
         let previous = self.last_column.replace(column)?;
-        let cells = i32::from(column) - i32::from(previous);
+        let cells = column - previous;
         (cells != 0).then_some(cells * ENGINE_DX_PER_CELL)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use plurimus::core::ratatui_core::layout::Position;
-    use plurimus::term::{KeyModifiers, MouseButton};
-
     use super::*;
 
-    fn mouse(kind: MouseKind, column: u16) -> MouseMessage {
-        MouseMessage::new(kind, Position::new(column, 0), KeyModifiers::default())
+    const SQUARE: CellSize = CellSize { x: 1.0, y: 1.0 };
+    const CENTER: f32 = 0.5;
+
+    fn at_column(column: u16, cell: CellSize) -> f32 {
+        (f32::from(column) + CENTER) * cell.x
     }
 
     #[test]
     fn first_motion_primes_without_turning() {
         let mut tracker = AimTracker::default();
-        assert!(tracker.track(&mouse(MouseKind::Moved, 10)).is_none());
+        assert!(tracker.track(at_column(10, SQUARE), SQUARE).is_none());
     }
 
     #[test]
     fn motion_scales_cell_delta_into_engine_units() {
         let mut tracker = AimTracker::default();
-        tracker.track(&mouse(MouseKind::Moved, 10));
+        tracker.track(at_column(10, SQUARE), SQUARE);
 
-        let dx = tracker.track(&mouse(MouseKind::Moved, 14)).unwrap();
+        let dx = tracker.track(at_column(14, SQUARE), SQUARE).unwrap();
         assert_eq!(dx, 4 * ENGINE_DX_PER_CELL);
 
-        let dx = tracker.track(&mouse(MouseKind::Moved, 9)).unwrap();
+        let dx = tracker.track(at_column(9, SQUARE), SQUARE).unwrap();
         assert_eq!(dx, -5 * ENGINE_DX_PER_CELL);
     }
 
     #[test]
-    fn drag_turns_like_plain_motion() {
+    fn wide_cells_turn_per_column_not_per_pixel() {
+        let wide = CellSize { x: 8.0, y: 16.0 };
         let mut tracker = AimTracker::default();
-        tracker.track(&mouse(MouseKind::Drag(MouseButton::Left), 0));
+        tracker.track(at_column(0, wide), wide);
 
-        let dx = tracker
-            .track(&mouse(MouseKind::Drag(MouseButton::Left), 2))
-            .unwrap();
+        let dx = tracker.track(at_column(2, wide), wide).unwrap();
         assert_eq!(dx, 2 * ENGINE_DX_PER_CELL);
-    }
-
-    #[test]
-    fn clicks_and_scroll_are_ignored() {
-        let mut tracker = AimTracker::default();
-        assert!(
-            tracker
-                .track(&mouse(MouseKind::Down(MouseButton::Left), 0))
-                .is_none()
-        );
-        assert!(tracker.track(&mouse(MouseKind::ScrollUp, 0)).is_none());
     }
 }

@@ -11,6 +11,8 @@ mod mouse_aim;
 mod plugin;
 mod restore;
 mod stdio;
+#[cfg(test)]
+mod test_input;
 mod wad;
 
 use std::path::Path;
@@ -59,10 +61,5 @@ fn main() -> AppExit {
     app.add_plugins(gpu::GpuPlugin);
     let doom = doom_thread::spawn_doom(iwad);
     app.insert_resource(doom);
-    let capabilities = app.world().resource::<plurimus::term::InputCapabilities>();
-    eprintln!(
-        "input capabilities: key_release={}",
-        capabilities.key_release
-    );
     app.run()
 }

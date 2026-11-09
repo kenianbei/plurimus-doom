@@ -10,7 +10,7 @@ through plurimus's camera/compositor pipeline like any other Bevy app.
 
 ## Requirements
 
-- Rust 1.95+ and a C compiler (doomgeneric's C sources build via `cc`).
+- Rust 1.97.1+ and a C compiler (doomgeneric's C sources build via `cc`).
 - A kitty-keyboard-protocol terminal (kitty, foot, WezTerm, recent
   Ghostty/Alacritty) for real key press/release events. Legacy terminals work,
   but held-key movement relies on synthesized releases and feels jerky.

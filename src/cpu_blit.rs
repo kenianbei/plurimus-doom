@@ -4,11 +4,9 @@
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::prelude::{Commands, IntoScheduleConfigs, Local, Query, Res, ResMut, Resource};
 use plurimus::core::raster::{HalfblockGrid, PixelGrid, blit_halfblocks, letterbox};
-use plurimus::core::ratatui_core::style::Color;
 use plurimus::core::{
-    Background, CameraBuffer, DefaultCamera, MainWorld, RasterizeSystems, SourceCamera,
-    TerminalCamera, TerminalRenderApp, TerminalRenderAppExt, TerminalRenderSystems,
-    camera_buffer_mut,
+    CameraBuffer, DefaultCamera, Extract, MainEntity, RasterizeSystems, TerminalCamera,
+    TerminalRenderApp, TerminalRenderAppExt, TerminalRenderSystems, camera_buffer_mut,
 };
 
 use crate::doom_thread::{DoomHandle, SharedFrame};
@@ -32,11 +30,14 @@ impl Plugin for CpuBlitPlugin {
 }
 
 fn spawn_world_camera(mut commands: Commands) {
-    commands.spawn(TerminalCamera::default().with_background(Background::Clear(Color::Black)));
+    commands.spawn(TerminalCamera::default());
 }
 
-fn extract_frame(main_world: Res<MainWorld>, mut extracted: ResMut<ExtractedDoomFrame>) {
-    let Some(handle) = main_world.get_resource::<DoomHandle>() else {
+fn extract_frame(
+    handle: Extract<Option<Res<DoomHandle>>>,
+    mut extracted: ResMut<ExtractedDoomFrame>,
+) {
+    let Some(handle) = handle.as_ref() else {
         return;
     };
     handle.frame.fetch_if_newer(&mut extracted.0);
@@ -45,13 +46,13 @@ fn extract_frame(main_world: Res<MainWorld>, mut extracted: ResMut<ExtractedDoom
 fn rasterize_doom(
     extracted: Res<ExtractedDoomFrame>,
     default_camera: Res<DefaultCamera>,
-    mut cameras: Query<(&SourceCamera, &mut CameraBuffer)>,
+    mut cameras: Query<(MainEntity, &mut CameraBuffer)>,
     mut grid: Local<HalfblockGrid>,
 ) {
     let Some(camera) = default_camera.0 else {
         return;
     };
-    let Some(mut buffer) = camera_buffer_mut(&mut cameras, camera) else {
+    let Some(mut buffer) = camera_buffer_mut(&mut cameras, MainEntity::from(camera)) else {
         return;
     };
     let frame = &extracted.0;
