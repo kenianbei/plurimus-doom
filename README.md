@@ -66,7 +66,7 @@ covers the engine's direct `exit()` call).
 
   ```sh
   ./fetch-wad.sh && vhs assets/demo.tape
-  magick assets/screenshot.png -gravity north -chop 0x20 +repage -trim +repage assets/screenshot.png
+  magick assets/screenshot.png -chop 0x20 +repage -trim +repage -colors 256 assets/screenshot.png
   optipng -quiet assets/screenshot.png
   ```
 
