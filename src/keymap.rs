@@ -18,6 +18,14 @@ pub fn map_mouse(input: &MouseButtonInput) -> Option<KeyData> {
     })
 }
 
+/// Releases of every key a mouse button maps to.
+pub fn button_releases() -> [KeyData; 2] {
+    [*keys::KEY_FIRE, *keys::KEY_USE].map(|key| KeyData {
+        pressed: false,
+        key,
+    })
+}
+
 pub fn map_key(input: &KeyboardInput, shifted: bool) -> Vec<KeyData> {
     if input.repeat {
         return Vec::new();
