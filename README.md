@@ -61,8 +61,8 @@ covers the engine's direct `exit()` call).
   in `.cargo/config.toml`); the blit letterboxes it into whatever size your
   terminal is.
 - The screenshot is generated with [VHS], [ImageMagick] and `optipng`. To
-  regenerate it, run this from the repo root (the crop drops the HUD row and
-  the letterbox bars; rerun if the capture tears mid-redraw):
+  regenerate it, run this from the repo root (the crop drops the HUD row and the
+  letterbox bars; rerun if the capture tears mid-redraw):
 
   ```sh
   ./fetch-wad.sh && vhs assets/demo.tape
