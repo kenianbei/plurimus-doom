@@ -8,6 +8,8 @@ through plurimus's camera/compositor pipeline like any other Bevy app.
 [plurimus]: https://github.com/kenianbei/plurimus
 [doomgeneric]: https://github.com/ozkl/doomgeneric
 
+![plurimus-doom playing Freedoom's attract-mode demo in a terminal](assets/screenshot.png)
+
 ## Requirements
 
 - Rust 1.97.1+ and a C compiler (doomgeneric's C sources build via `cc`).
@@ -58,6 +60,18 @@ covers the engine's direct `exit()` call).
 - The engine renders at 320x200 (set at build time via `DOOMGENERIC_RESX/RESY`
   in `.cargo/config.toml`); the blit letterboxes it into whatever size your
   terminal is.
+- The screenshot is generated with [VHS], [ImageMagick] and `optipng`. To
+  regenerate it, run this from the repo root (the crop drops the HUD row and
+  the letterbox bars; rerun if the capture tears mid-redraw):
+
+  ```sh
+  ./fetch-wad.sh && vhs assets/demo.tape
+  magick assets/screenshot.png -gravity north -chop 0x20 +repage -trim +repage assets/screenshot.png
+  optipng -quiet assets/screenshot.png
+  ```
+
+[VHS]: https://github.com/charmbracelet/vhs
+[ImageMagick]: https://imagemagick.org
 
 ## License
 
