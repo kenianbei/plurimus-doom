@@ -2505,9 +2505,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c27a19c7ecf5c6338e05f0c1d2ea3052f00d216b138e1f85515823774de6b736"
+checksum = "030c6303188166a2af73758f88ee9b2f7fce01c010ebd490791d1f7a5350f25d"
 dependencies = [
  "plurimus_3d",
  "plurimus_core",
@@ -2542,9 +2542,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_3d"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42e1775093593b9ffdb6e4795c5d380360dad7121e8c08ddb456fb98a4c84e09"
+checksum = "5139c77180b3dbe0638e1ac163f86369d3237cdc56d91b1b05984542315526e9"
 dependencies = [
  "bevy_app",
  "bevy_asset",
@@ -2569,9 +2569,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_core"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a164df8a90cf8be3d666622647f2a5c033d5aea0233167c9a5f568af65f12626"
+checksum = "813e44d0feed431df4b24be5c62769ec08b87afc6dbaa3a023a76e882cae3442"
 dependencies = [
  "bevy_app",
  "bevy_camera",
@@ -2584,9 +2584,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_crossterm"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3498bc4bd46f1175a29644d9e182cc20670f9a4744fc2ecda7e8fa142cf7ac95"
+checksum = "0b3aba8cbd3cb7cf8eb190d056961735fedec11e8597a7271e10aadf735b7123"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -2601,9 +2601,9 @@ dependencies = [
 
 [[package]]
 name = "plurimus_term"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b55f759be1ff5ef7414949d0c2006697aed72b1b8d3fade8192f213a50eacbac"
+checksum = "79c3a1974f7dd64201dd175ed6e352b1d6e0937b3d388ed9613901ec29ef4cce"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
